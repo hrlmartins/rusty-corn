@@ -1,6 +1,7 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-#[macro_use] extern crate rocket;
+#[macro_use]
+extern crate rocket;
 
 mod routes;
 
@@ -10,11 +11,7 @@ fn index() -> &'static str {
 }
 
 fn main() {
-    rocket::ignite().mount(
-        "/",
-        routes![
-            index,
-            routes::movies::list_movies_in_display,
-        ]
-    ).launch();
+    rocket::ignite()
+        .mount("/", routes![index, routes::movies::list_movies_in_display,])
+        .launch();
 }
