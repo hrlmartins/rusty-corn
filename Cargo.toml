@@ -1,0 +1,7 @@
+[package]
+name = "rusty-corn"
+version = "0.1.0"
+authors = ["Helder Martins <heldermartins89@gmail.com>"]
+
+[dependencies]
+rocket = "0.4.0"
