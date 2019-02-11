@@ -3,6 +3,13 @@
 #[macro_use]
 extern crate rocket;
 
+extern crate chrono;
+
+extern crate reqwest;
+
+extern crate futures;
+
+
 mod routes;
 
 #[get("/")]
