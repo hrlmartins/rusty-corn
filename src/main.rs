@@ -1,15 +1,14 @@
 #![feature(proc_macro_hygiene, decl_macro)]
+#![feature(custom_attribute)]
 
 #[macro_use]
 extern crate rocket;
 
+extern crate rocket_contrib;
+
 extern crate chrono;
 
 extern crate reqwest;
-
-extern crate futures;
-
-extern crate tokio;
 
 extern crate serde_json;
 
@@ -27,7 +26,6 @@ use routes::movies::SERVICE_REQUEST_PATH;
 use chrono::Utc;
 use failure::Error;
 use serde::Deserialize;
-use serde_json::Value;
 use std::collections::HashMap;
 
 #[get("/")]
@@ -35,23 +33,15 @@ fn index() -> &'static str {
     "Hello, world!"
 }
 
-fn main() {
-    let tmp = load_data();
-    match tmp {
-        Ok(res) => {
-            let v: serde_json::Result<Value> = serde_json::from_str(res.as_str());
-            match v {
-                Ok(wat) => println!("fine and dandy"),
-                Err(error) => println!("mehhh..."),
-            }
-        }
+fn main() -> Result<(), Error> {
+    let service_movies = load_data()?;
 
-        Err(some) => println!("{:#?}", some),
-    }
+    rocket::ignite()
+        .mount("/", routes![index, routes::movies::list_movies_in_display,])
+        .manage(service_movies)
+        .launch();
 
-    /*    rocket::ignite()
-    .mount("/", routes![index, routes::movies::list_movies_in_display,])
-    .launch();*/
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -71,11 +61,11 @@ struct ServiceMovie {
     image_url: String,
 }
 
-fn load_data() -> Result<String, Error> {
+fn load_data() -> Result<movies::MovieList, Error> {
     let json_text = make_external_request()?;
     let movies: ServiceMovies = serde_json::from_str(json_text.as_str())?;
 
-    Ok(json_text)
+    Ok(from_service_movies(movies))
 }
 
 fn make_external_request() -> Result<String, Error> {
@@ -95,7 +85,7 @@ fn from_service_movies(service_movies: ServiceMovies) -> movies::MovieList {
     let movies = service_movies
         .d
         .iter()
-        .map(|sm| movies::Movie::new(sm.name.clone(), sm.link.clone(), HashMap::new(), Utc::now()))
+        .map(|sm| movies::Movie::new(sm.name.clone(), sm.link.clone(), sm.image_url.clone(), HashMap::new(), Utc::now()))
         .collect();
 
     movies::MovieList::new(movies)

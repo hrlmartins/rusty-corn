@@ -5,6 +5,7 @@ authors = ["Helder Martins <heldermartins89@gmail.com>"]
 
 [dependencies]
 rocket = "0.4.0"
+rocket_contrib = "0.4.0"
 chrono = "0.4"
 reqwest = "0.9.9"
 futures = "0.1.25"
