@@ -37,7 +37,7 @@ fn main() -> Result<(), Error> {
     let service_movies = load_data()?;
 
     rocket::ignite()
-        .mount("/", routes![index, routes::movies::list_movies_in_display,])
+        .mount("/", routes![index, routes::movies::list_movies_in_display, routes::movies::handle_action])
         .manage(service_movies)
         .launch();
 

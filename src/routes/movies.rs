@@ -4,6 +4,7 @@ use models::movies;
 use rocket::State;
 use rocket_contrib::json::Json;
 use serde::Serialize;
+use serde::Deserialize;
 
 pub const BASE_URL: &str = "http://cinemas.nos.pt";
 pub const SERVICE_REQUEST_PATH: &str =
@@ -19,6 +20,7 @@ pub struct SlackRequest {
 #[post("/movies", data = "<request>")]
 pub fn list_movies_in_display(request: LenientForm<SlackRequest>, movies: State<movies::MovieList>) -> Json<BlocksRoot> {
     let mut root = BlocksRoot::new();
+    root.add_divider();
 
     for movie in movies.get_page(1) {
         let message = format!("*<{}{}|{}>*", BASE_URL, movie.url, movie.name);
@@ -26,28 +28,73 @@ pub fn list_movies_in_display(request: LenientForm<SlackRequest>, movies: State<
 
         let image = AccessoryImage::new(format!("{}{}", BASE_URL, movie.image_url));
 
-        root.add_divider()
-            .add_section(text, image)
+        root.add_section(text, image)
             .add_divider();
     }
 
-    println!("{:#?}", serde_json::to_string(&root).unwrap());
+    let button_text = PlainText::new("test".to_string());
+    let button = Action {
+        block_type: "button".to_owned(),
+        text: button_text,
+    };
 
-    let a = Json(root);
+    root.add_action(button);
 
-    println!("{:#?}", a);
-
-    a
+    Json(root)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+pub struct SlackAction {
+    action_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SlackActionRequest {
+    response_url: String,
+    actions: Vec<SlackAction>,
+}
+
+#[derive(Debug, FromForm)]
+pub struct ActionPayload {
+    payload: String
+}
+
+#[derive(Serialize)]
+pub struct ActionReply {
+    response_type: String,
+    replace_original: bool,
+    delete_original: bool,
+    text: String
+}
+
+#[post("/actions", data = "<request>")]
+pub fn handle_action(request: LenientForm<ActionPayload>, movies: State<movies::MovieList>) -> &'static str {
+    let request_json = request.into_inner().payload;
+    let request_struct: SlackActionRequest = serde_json::from_str(request_json.as_str()).unwrap();
+    let response_url = request_struct.response_url;
+
+    let response = ActionReply {
+        response_type: "ephemeral".to_owned(),
+        replace_original: true,
+        delete_original: false,
+        text: "".to_owned(),
+    };
+
+    let client = reqwest::Client::new();
+    client.post(response_url.as_str())
+        .json(&response)
+        .send()
+        .unwrap();
+
+    "got it champ"
+}
+
 #[derive(Serialize)]
 pub struct Divider {
     #[serde(rename = "type")]
     block_type: String,
 }
 
-#[derive(Debug)]
 #[derive(Serialize)]
 pub struct Text {
     #[serde(rename = "type")]
@@ -55,7 +102,13 @@ pub struct Text {
     text: String,
 }
 
-#[derive(Debug)]
+#[derive(Serialize)]
+pub struct PlainText {
+    #[serde(rename = "type")]
+    block_type: String,
+    text: String,
+}
+
 #[derive(Serialize)]
 pub struct AccessoryImage {
     #[serde(rename = "type")]
@@ -64,7 +117,6 @@ pub struct AccessoryImage {
     alt_text: String,
 }
 
-#[derive(Debug)]
 #[derive(Serialize)]
 pub struct Section {
     #[serde(rename = "type")]
@@ -73,15 +125,29 @@ pub struct Section {
     accessory: AccessoryImage,
 }
 
-#[derive(Debug)]
+#[derive(Serialize)]
+pub struct Action {
+    #[serde(rename = "type")]
+    block_type: String,
+    text: PlainText,
+}
+
+#[derive(Serialize)]
+pub struct Actions {
+    #[serde(rename = "type")]
+    block_type: String,
+    elements: Vec<Action>,
+}
+
+
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Block {
     Divider(Divider),
-    Section(Section)
+    Section(Section),
+    Actions(Actions)
 }
 
-#[derive(Debug)]
 #[derive(Serialize)]
 pub struct BlocksRoot {
     blocks: Vec<Block>,
@@ -114,10 +180,34 @@ impl BlocksRoot {
         self
     }
 
+    pub fn add_action(&mut self, action: Action) -> &mut Self {
+        let mut vec_actions = Vec::new();
+        vec_actions.push(action);
+
+        let actions = Actions {
+            block_type: "actions".to_owned(),
+            elements: vec_actions
+        };
+
+        self.add_block(Block::Actions(actions));
+
+        self
+    }
+
     fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
 }
+
+impl PlainText {
+    pub fn new(text: String) -> PlainText {
+        PlainText {
+            block_type: "plain_text".to_owned(),
+            text
+        }
+    }
+}
+
 
 
 impl Text {
