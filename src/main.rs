@@ -23,10 +23,8 @@ use models::movies;
 use routes::movies::BASE_URL;
 use routes::movies::SERVICE_REQUEST_PATH;
 
-use chrono::Utc;
 use failure::Error;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 #[get("/")]
 fn index() -> &'static str {
@@ -37,7 +35,14 @@ fn main() -> Result<(), Error> {
     let service_movies = load_data()?;
 
     rocket::ignite()
-        .mount("/", routes![index, routes::movies::list_movies_in_display, routes::movies::handle_action])
+        .mount(
+            "/",
+            routes![
+                index,
+                routes::movies::list_movies_in_display,
+                routes::movies::handle_action
+            ],
+        )
         .manage(service_movies)
         .launch();
 
@@ -55,8 +60,6 @@ struct ServiceMovie {
     name: String,
     #[serde(alias = "Link")]
     link: String,
-    #[serde(alias = "PremiereDate")]
-    premiere_date: String,
     #[serde(alias = "ImageUrl")]
     image_url: String,
 }
@@ -85,7 +88,7 @@ fn from_service_movies(service_movies: ServiceMovies) -> movies::MovieList {
     let movies = service_movies
         .d
         .iter()
-        .map(|sm| movies::Movie::new(sm.name.clone(), sm.link.clone(), sm.image_url.clone(), HashMap::new(), Utc::now()))
+        .map(|sm| movies::Movie::new(sm.name.clone(), sm.link.clone(), sm.image_url.clone()))
         .collect();
 
     movies::MovieList::new(movies)

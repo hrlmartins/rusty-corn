@@ -1,21 +1,14 @@
-use chrono::DateTime;
-use chrono::Utc;
 use std::cmp;
-use std::collections::HashMap;
-
-type MovieProperty = HashMap<String, String>;
 
 pub struct Movie {
     pub name: String,
     pub url: String,
     pub image_url: String,
-    properties: MovieProperty,
-    premiere_date: DateTime<Utc>,
 }
 
 pub struct MovieList {
     movies: Vec<Movie>,
-    page_size: usize,
+    page_size: u8,
 }
 
 impl MovieList {
@@ -26,11 +19,14 @@ impl MovieList {
         }
     }
 
-    pub fn get_page(&self, page_number: usize) -> &[Movie] {
+    pub fn get_page(&self, page_number: u8) -> &[Movie] {
         let offset = (page_number - 1) * self.page_size;
-        let tail = cmp::min(self.movies.len() - 1, offset + (self.page_size - 1));
+        let tail = cmp::min(
+            self.movies.len() - 1,
+            (offset + (self.page_size - 1)) as usize,
+        );
 
-        &self.movies[offset..tail]
+        &self.movies[offset as usize..=tail]
     }
 
     pub fn total_pages(&self) -> u8 {
@@ -39,19 +35,11 @@ impl MovieList {
 }
 
 impl Movie {
-    pub fn new(
-        name: String,
-        url: String,
-        image_url: String,
-        properties: MovieProperty,
-        premiere_date: DateTime<Utc>,
-    ) -> Movie {
+    pub fn new(name: String, url: String, image_url: String) -> Movie {
         Movie {
             name,
             url,
             image_url,
-            properties,
-            premiere_date,
         }
     }
 }
