@@ -1,6 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-#![feature(custom_attribute)]
-
 extern crate actix_web;
 
 extern crate actix;
@@ -38,6 +35,12 @@ fn index(_req: &HttpRequest<AppState>) -> &'static str {
 
 fn main() {
     std::env::set_var("RUST_LOG", "actix_web=info");
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .expect("PORT must be a number");
+
+
     env_logger::init();
 
     let sys = actix::System::new("rusty-system");
@@ -45,7 +48,7 @@ fn main() {
     let addr = ServiceActor::new().start();
 
     HttpServer::new( move || create_app(addr.clone()))
-        .bind("127.0.0.1:8000")
+        .bind(("0.0.0.0", port))
         .unwrap()
         .start();
 
