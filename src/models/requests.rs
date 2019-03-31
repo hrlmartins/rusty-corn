@@ -3,7 +3,7 @@ use serde::Serialize;
 use models::blocks::Block;
 
 
-#[derive(Debug, FromForm)]
+#[derive(Debug, Deserialize)]
 pub struct SlackRequest {
     token: String,
     user_name: String,
@@ -22,7 +22,7 @@ pub struct SlackActionRequest {
     pub actions: Vec<SlackAction>,
 }
 
-#[derive(Debug, FromForm)]
+#[derive(Debug, Deserialize)]
 pub struct ActionRequest {
     pub payload: String,
 }

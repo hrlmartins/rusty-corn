@@ -1,11 +1,13 @@
 use std::cmp;
 
+#[derive(Clone)]
 pub struct Movie {
     pub name: String,
     pub url: String,
     pub image_url: String,
 }
 
+#[derive(Clone)]
 pub struct MovieList {
     movies: Vec<Movie>,
     page_size: u8,

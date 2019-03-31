@@ -1,34 +1,26 @@
-use rocket::request::LenientForm;
-use rocket::State;
-use rocket_contrib::json::Json;
-
 use models::blocks::{AccessoryImage, Action, BlocksRoot, PlainText, Text};
 use models::movies;
 use models::requests::{ActionReply, ActionRequest, SlackAction, SlackActionRequest, SlackRequest};
+use actix_web::{Form, Json, Result, State};
+use core::borrow::Borrow;
 
 pub const BASE_URL: &str = "http://cinemas.nos.pt";
 pub const SERVICE_REQUEST_PATH: &str =
     "/_layouts/15/Cinemas/ApplicationPages/CinemasHelperService.aspx/GetAllMoviesPlaying";
 
-#[post("/movies", data = "<request>")]
-pub fn list_movies_in_display(
-    request: LenientForm<SlackRequest>,
-    movies: State<movies::MovieList>,
-) -> Json<BlocksRoot> {
-    Json(build_response(movies.inner(), 1))
+pub fn list_movies_in_display((_request, movies): (Form<SlackRequest>, State<movies::MovieList>)) ->  Result<Json<BlocksRoot>> {
+    Ok(Json(build_response(movies.borrow(), 1)))
 }
 
-#[post("/actions", data = "<request>")]
 pub fn handle_action(
-    request: LenientForm<ActionRequest>,
-    movies: State<movies::MovieList>,
+    (request, movies): (Form<ActionRequest>, State<movies::MovieList>)
 ) -> &'static str {
     let request_json = request.into_inner().payload;
     let request_struct: SlackActionRequest = serde_json::from_str(request_json.as_str()).unwrap();
     let response_url = request_struct.response_url;
     let button_action = request_struct.actions.first().unwrap();
 
-    let response = action_response(button_action, &movies);
+    let response = action_response(button_action, movies.borrow());
 
     let client = reqwest::Client::new();
     client
@@ -36,7 +28,6 @@ pub fn handle_action(
         .json(&response)
         .send()
         .unwrap();
-
     "got it champ"
 }
 
