@@ -1,63 +1,47 @@
 use models::blocks::{AccessoryImage, Action, BlocksRoot, PlainText, Text};
 use models::movies;
 use models::requests::{ActionReply, ActionRequest, SlackAction, SlackActionRequest, SlackRequest};
-use actix_web::{Form, Json, Result, State};
+use actix_web::{Form, Json, Result, State, HttpResponse};
 use core::borrow::Borrow;
+use AppState;
+use service_actor::messages::QueryMovie;
 
 pub const BASE_URL: &str = "http://cinemas.nos.pt";
 pub const SERVICE_REQUEST_PATH: &str =
     "/_layouts/15/Cinemas/ApplicationPages/CinemasHelperService.aspx/GetAllMoviesPlaying";
 
-pub fn list_movies_in_display((_request, movies): (Form<SlackRequest>, State<movies::MovieList>)) ->  Result<Json<BlocksRoot>> {
-    Ok(Json(build_response(movies.borrow(), 1)))
+pub fn list_movies_in_display((request, state): (Form<SlackRequest>, State<AppState>)) ->  HttpResponse {
+    let response_url = request.into_inner().response_url;
+    let message = QueryMovie(1, response_url, false, false);
+
+    state.responder.do_send(message);
+
+    HttpResponse::Ok().finish()
 }
 
 pub fn handle_action(
-    (request, movies): (Form<ActionRequest>, State<movies::MovieList>)
-) -> &'static str {
+    (request, state): (Form<ActionRequest>, State<AppState>)
+) -> HttpResponse {
     let request_json = request.into_inner().payload;
     let request_struct: SlackActionRequest = serde_json::from_str(request_json.as_str()).unwrap();
     let response_url = request_struct.response_url;
     let button_action = request_struct.actions.first().unwrap();
 
-    let response = action_response(button_action, movies.borrow());
+    let response = action_response(button_action, response_url);
 
-    let client = reqwest::Client::new();
-    client
-        .post(response_url.as_str())
-        .json(&response)
-        .send()
-        .unwrap();
-    "got it champ"
+    state.responder.do_send(response);
+
+    HttpResponse::Ok().finish()
 }
 
-fn action_response(action: &SlackAction, movies: &movies::MovieList) -> ActionReply {
+fn action_response(action: &SlackAction, url: String) -> QueryMovie {
     let button_id = action.action_id.to_owned();
     let value_string = action.value.to_owned();
     let page: u8 = value_string.parse().unwrap();
 
     match button_id.as_ref() {
-        "next" => ActionReply {
-            response_type: "ephemeral".to_owned(),
-            replace_original: true,
-            delete_original: false,
-            text: "".to_owned(),
-            blocks: build_response(movies, page).blocks,
-        },
-        "previous" => ActionReply {
-            response_type: "ephemeral".to_owned(),
-            replace_original: true,
-            delete_original: false,
-            text: "".to_owned(),
-            blocks: build_response(movies, page).blocks,
-        },
-        _ => ActionReply {
-            response_type: "ephemeral".to_owned(),
-            replace_original: true,
-            delete_original: true,
-            text: "".to_owned(),
-            blocks: Vec::new(),
-        },
+        "cancel" => QueryMovie(page, url, true, true),
+        _ => QueryMovie(page, url, true, false)
     }
 }
 

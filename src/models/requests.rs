@@ -5,9 +5,9 @@ use models::blocks::Block;
 
 #[derive(Debug, Deserialize)]
 pub struct SlackRequest {
-    token: String,
-    user_name: String,
-    response_url: String,
+    pub token: String,
+    pub user_name: String,
+    pub response_url: String,
 }
 
 #[derive(Debug, Deserialize)]
