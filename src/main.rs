@@ -17,15 +17,9 @@ mod models;
 mod routes;
 mod service_actor;
 
-use models::movies;
-use routes::movies::BASE_URL;
-use routes::movies::SERVICE_REQUEST_PATH;
-
-use serde::Deserialize;
 use actix_web::server::HttpServer;
 use actix_web::{App, http, HttpRequest, middleware};
 use actix::Actor;
-use models::movies::MovieList;
 use service_actor::ServiceActor;
 
 
@@ -73,48 +67,4 @@ fn create_app(address: actix::Addr<ServiceActor>) -> App<AppState> {
 
 pub struct AppState {
     pub responder: actix::Addr<ServiceActor>,
-}
-
-#[derive(Deserialize)]
-struct ServiceMovies {
-    d: Vec<ServiceMovie>,
-}
-
-#[derive(Deserialize)]
-struct ServiceMovie {
-    #[serde(alias = "Name")]
-    name: String,
-    #[serde(alias = "Link")]
-    link: String,
-    #[serde(alias = "ImageUrl")]
-    image_url: String,
-}
-
-fn load_data() -> MovieList {
-    let json_text = make_external_request();
-    let movies: ServiceMovies = serde_json::from_str(json_text.as_str()).unwrap();
-
-    from_service_movies(movies)
-}
-
-fn make_external_request() -> String {
-    let client = reqwest::Client::new();
-    client
-        .post(format!("{}{}", BASE_URL, SERVICE_REQUEST_PATH).as_str())
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        )
-        .send().unwrap()
-        .text().unwrap()
-}
-
-fn from_service_movies(service_movies: ServiceMovies) -> MovieList {
-    let movies = service_movies
-        .d
-        .iter()
-        .map(|sm| movies::Movie::new(sm.name.clone(), sm.link.clone(), sm.image_url.clone()))
-        .collect();
-
-    movies::MovieList::new(movies)
 }
