@@ -1,7 +1,6 @@
+use models::blocks::Block;
 use serde::Deserialize;
 use serde::Serialize;
-use models::blocks::Block;
-
 
 #[derive(Debug, Deserialize)]
 pub struct SlackRequest {
@@ -28,7 +27,7 @@ pub struct ActionRequest {
 }
 
 #[derive(Serialize)]
-pub struct ActionReply {
+pub struct RequestReply {
     pub response_type: String,
     pub replace_original: bool,
     pub delete_original: bool,

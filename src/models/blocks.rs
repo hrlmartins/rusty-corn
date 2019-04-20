@@ -38,7 +38,6 @@ impl PlainText {
     }
 }
 
-
 #[derive(Serialize)]
 pub struct AccessoryImage {
     #[serde(rename = "type")]

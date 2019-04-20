@@ -1,10 +1,10 @@
-use serde::Deserialize;
-use models::movies;
 use actix::{Actor, Context};
-use routes::movies::{BASE_URL, SERVICE_REQUEST_PATH};
-use models::blocks::{BlocksRoot, Text, AccessoryImage, Action, PlainText};
 use core::borrow::Borrow;
-use models::requests::ActionReply;
+use models::blocks::{AccessoryImage, Action, BlocksRoot, PlainText, Text};
+use models::movies;
+use models::requests::RequestReply;
+use routes::movies::{BASE_URL, SERVICE_REQUEST_PATH};
+use serde::Deserialize;
 
 pub struct ServiceActor {
     movies: movies::MovieList,
@@ -17,7 +17,6 @@ impl ServiceActor {
             movies: load_data(),
             http_client: reqwest::Client::new(),
         }
-
     }
 
     fn build_response(movies: &movies::MovieList, page: u8) -> BlocksRoot {
@@ -44,10 +43,16 @@ impl ServiceActor {
         let mut actions = Vec::new();
 
         if page < total_pages && page > 1 {
-            actions.push(ServiceActor::create_button("Previous", (page - 1).to_string()));
+            actions.push(ServiceActor::create_button(
+                "Previous",
+                (page - 1).to_string(),
+            ));
             actions.push(ServiceActor::create_button("Next", (page + 1).to_string()));
         } else if page >= total_pages {
-            actions.push(ServiceActor::create_button("Previous", (page - 1).to_string()));
+            actions.push(ServiceActor::create_button(
+                "Previous",
+                (page - 1).to_string(),
+            ));
         } else {
             actions.push(ServiceActor::create_button("Next", (page + 1).to_string()));
         }
@@ -69,60 +74,64 @@ impl ServiceActor {
 }
 
 pub mod messages {
-    pub struct QueryMovie(pub u8, pub String, pub bool, pub bool);
-}
 
-impl actix::Message for messages::QueryMovie {
-    type Result = ();
+    pub struct QueryMovie {
+        pub page: u8,
+        pub response_url: String,
+    }
+
+    pub struct Cancel {
+        pub response_url: String,
+    }
+
+    pub enum Message {
+        QueryOp(QueryMovie),
+        CancelOp(Cancel),
+    }
+
+    impl actix::Message for Message {
+        type Result = ();
+    }
 }
 
 impl Actor for ServiceActor {
     type Context = Context<Self>;
 }
 
-impl actix::Handler<messages::QueryMovie> for ServiceActor {
+impl actix::Handler<messages::Message> for ServiceActor {
     type Result = ();
 
-    fn handle(&mut self, msg: messages::QueryMovie, ctx: &mut Context<Self>) -> Self::Result {
-        let page = msg.0;
-        let response_url = msg.1;
-        let is_action = msg.2;
-
-        if is_action {
-            let is_cancel = msg.3;
-            let mut default_reply = ActionReply {
-                response_type: "ephemeral".to_owned(),
-                replace_original: true,
-                delete_original: true,
-                text: "".to_owned(),
-                blocks: Vec::new(),
-            };
-
-
-            if !is_cancel {
-                default_reply = ActionReply {
+    fn handle(&mut self, msg: messages::Message, _ctx: &mut Context<Self>) -> Self::Result {
+        let (url, reply) = match msg {
+            messages::Message::QueryOp(query_params) => (
+                query_params.response_url,
+                RequestReply {
                     response_type: "ephemeral".to_owned(),
-                    replace_original: true,
+                    replace_original: query_params.page > 1,
                     delete_original: false,
                     text: "".to_owned(),
-                    blocks: ServiceActor::build_response(self.movies.borrow(), page).blocks,
-                }
-            }
+                    blocks: ServiceActor::build_response(self.movies.borrow(), query_params.page)
+                        .blocks,
+                },
+            ),
 
-            self.http_client
-                .post(response_url.as_str())
-                .json(&default_reply)
-                .send()
-                .unwrap();
+            messages::Message::CancelOp(cancel_params) => (
+                cancel_params.response_url,
+                RequestReply {
+                    response_type: "ephemeral".to_owned(),
+                    replace_original: true,
+                    delete_original: true,
+                    text: "".to_owned(),
+                    blocks: Vec::new(),
+                },
+            ),
+        };
 
-        } else {
-            let root = ServiceActor::build_response(self.movies.borrow(), page);
-            self.http_client
-                .post(response_url.as_str())
-                .json(&root)
-                .send()
-                .unwrap();
-        }
+        self.http_client
+            .post(url.as_str())
+            .json(&reply)
+            .send()
+            .unwrap();
 
         ()
     }
@@ -164,8 +173,10 @@ fn make_external_request() -> String {
             reqwest::header::CONTENT_TYPE,
             reqwest::header::HeaderValue::from_static("application/json"),
         )
-        .send().unwrap()
-        .text().unwrap()
+        .send()
+        .unwrap()
+        .text()
+        .unwrap()
 }
 
 fn from_service_movies(service_movies: ServiceMovies) -> movies::MovieList {
@@ -177,4 +188,3 @@ fn from_service_movies(service_movies: ServiceMovies) -> movies::MovieList {
 
     movies::MovieList::new(movies)
 }
-

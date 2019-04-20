@@ -10,18 +10,17 @@ extern crate serde;
 
 extern crate core;
 
-extern crate log;
 extern crate env_logger;
+extern crate log;
 
 mod models;
 mod routes;
 mod service_actor;
 
-use actix_web::server::HttpServer;
-use actix_web::{App, http, HttpRequest, middleware};
 use actix::Actor;
+use actix_web::server::HttpServer;
+use actix_web::{http, middleware, App, HttpRequest};
 use service_actor::ServiceActor;
-
 
 fn index(_req: &HttpRequest<AppState>) -> &'static str {
     "Hello, world!"
@@ -34,14 +33,13 @@ fn main() {
         .parse()
         .expect("PORT must be a number");
 
-
     env_logger::init();
 
     let sys = actix::System::new("rusty-system");
 
     let addr = ServiceActor::new().start();
 
-    HttpServer::new( move || create_app(addr.clone()))
+    HttpServer::new(move || create_app(addr.clone()))
         .bind(("0.0.0.0", port))
         .unwrap()
         .start();
@@ -52,17 +50,15 @@ fn main() {
 fn create_app(address: actix::Addr<ServiceActor>) -> App<AppState> {
     App::with_state(AppState { responder: address })
         .middleware(middleware::Logger::new("\"%r\" %s %b %Dms"))
-        .resource(
-            "/",
-            |r| r.method(http::Method::GET).f(index),
-        )
-        .resource(
-            "/movies",
-            |r| r.method(http::Method::POST).with(routes::movies::list_movies_in_display),
-        ).resource(
-        "/actions",
-        |r| r.method(http::Method::POST).with(routes::movies::handle_action),
-    )
+        .resource("/", |r| r.method(http::Method::GET).f(index))
+        .resource("/movies", |r| {
+            r.method(http::Method::POST)
+                .with(routes::movies::list_movies_in_display)
+        })
+        .resource("/actions", |r| {
+            r.method(http::Method::POST)
+                .with(routes::movies::handle_action)
+        })
 }
 
 pub struct AppState {
